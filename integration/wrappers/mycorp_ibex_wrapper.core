@@ -1,0 +1,57 @@
+CAPI=2:
+
+name: "mycorp:ibex:wrapper:1.0"
+description: "Thin wrapper around lowRISC Ibex core that exposes parameters for custom builds"
+
+filesets:
+  rtl:
+    files: [ibex_wrapper.sv]
+    file_type: systemVerilogSource
+  deps:
+    depend: [lowrisc:ibex:ibex_top]
+
+parameters:
+  RV32E:            {datatype: int,  paramtype: vlogparam,  default: 0}
+  RV32M:            {datatype: str,  paramtype: vlogdefine, default: ibex_pkg::RV32MFast}
+  RV32B:            {datatype: str,  paramtype: vlogdefine, default: ibex_pkg::RV32BNone}
+  RegFile:          {datatype: str,  paramtype: vlogdefine, default: ibex_pkg::RegFileFF}
+  ICache:           {datatype: int,  paramtype: vlogparam,  default: 0}
+  ICacheECC:        {datatype: int,  paramtype: vlogparam,  default: 0}
+  ICacheScramble:   {datatype: int,  paramtype: vlogparam,  default: 0}
+  BranchTargetALU:  {datatype: int,  paramtype: vlogparam,  default: 0}
+  WritebackStage:   {datatype: int,  paramtype: vlogparam,  default: 0}
+  BranchPredictor:  {datatype: int,  paramtype: vlogparam,  default: 0}
+  DbgTriggerEn:     {datatype: int,  paramtype: vlogparam,  default: 0}
+  SecureIbex:       {datatype: int,  paramtype: vlogparam,  default: 0}
+  PMPEnable:        {datatype: int,  paramtype: vlogparam,  default: 0}
+  PMPGranularity:   {datatype: int,  paramtype: vlogparam,  default: 0}
+  PMPNumRegions:    {datatype: int,  paramtype: vlogparam,  default: 4}
+  MHPMCounterNum:   {datatype: int,  paramtype: vlogparam,  default: 0}
+  MHPMCounterWidth: {datatype: int,  paramtype: vlogparam,  default: 40}
+
+targets:
+  default: &default
+    filesets: [rtl, deps]
+    toplevel: my_ibex_wrapper
+    parameters:
+      - RV32E
+      - RV32M
+      - RV32B
+      - RegFile
+      - ICache
+      - ICacheECC
+      - ICacheScramble
+      - BranchTargetALU
+      - WritebackStage
+      - BranchPredictor
+      - DbgTriggerEn
+      - SecureIbex
+      - PMPEnable
+      - PMPGranularity
+      - PMPNumRegions
+      - MHPMCounterNum
+      - MHPMCounterWidth
+
+  sim:
+    <<: *default
+    default_tool: verilator
