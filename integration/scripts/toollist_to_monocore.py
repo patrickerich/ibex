@@ -3,6 +3,7 @@ import os
 import sys
 import shlex
 import shutil
+import re
 from pathlib import Path
 
 USAGE = "Usage: toollist_to_monocore.py <filelist> <export_dir> <core_name> <core_version>"
@@ -22,15 +23,22 @@ rtl_dir = export_dir / "rtl"
 inc_dir = export_dir / "include"
 export_dir.mkdir(parents=True, exist_ok=True)
 rtl_dir.mkdir(parents=True, exist_ok=True)
-# include/ is created lazily only if needed
+# include/ is created lazily only if/when we copy a header
 
 visited_lists = set()
-files_ordered = []        # list of (relpath_from_export, is_header)
+# files_ordered: list of dicts with keys:
+#   rel (str)        : path relative to export_dir
+#   is_header (bool) : whether to mark as include file
+#   dst (Path)       : absolute path in export tree
+#   orig (Path)      : absolute source path from toollist (if known)
+files_ordered = []
 seen_rel = set()
-incdirs = []              # absolute include dirs, ordered
+incdirs = []  # absolute include dirs, in order
 
 HDL_EXTS = (".sv", ".svh", ".vh", ".v")
 HEADER_EXTS = (".svh", ".vh")
+# Basic regex to catch: `include "foo/bar.sv"`  (ignores comments/block noise heuristically)
+RE_INCLUDE = re.compile(r'^\s*`include\s+"([^"]+)"')
 
 def _resolve(base: Path, p: Path) -> Path:
     return p if p.is_absolute() else (base / p).resolve()
@@ -57,34 +65,45 @@ def ensure_dir(d: Path):
     if not d.exists():
         d.mkdir(parents=True, exist_ok=True)
 
+def _add_entry(dst: Path, is_header: bool, orig: Path | None):
+    """Register a copied file into files_ordered iff not already present."""
+    rel = os.path.relpath(dst, export_dir)
+    if rel in seen_rel:
+        return None
+    seen_rel.add(rel)
+    ent = {"rel": rel, "is_header": is_header, "dst": dst.resolve(), "orig": orig}
+    files_ordered.append(ent)
+    return ent
+
 def add_src(base: Path, token: str):
-    p = _resolve(base, Path(token))
-    if not p.exists():
+    """Copy a source referenced in the tool filelist."""
+    orig = _resolve(base, Path(token))
+    if not orig.exists():
         return
-    if p.suffix.lower() not in HDL_EXTS:
+    if orig.suffix.lower() not in HDL_EXTS:
         return
 
-    is_header = is_under_incdir(p) or (p.suffix.lower() in HEADER_EXTS)
+    # Heuristic header classification for toollist-provided entries:
+    is_header = is_under_incdir(orig) or (orig.suffix.lower() in HEADER_EXTS)
 
+    # Destination: headers -> include/, others -> rtl/
     dst_root = inc_dir if is_header else rtl_dir
     if is_header:
-        ensure_dir(inc_dir)  # lazily create include/ only if we actually have headers
+        ensure_dir(inc_dir)  # lazily create include/ only if needed
 
-    dst = dst_root / p.name
+    # Preserve basename for normal sources; avoid collisions
+    dst = dst_root / orig.name
     if dst.exists():
         i = 1
         while True:
-            cand = dst_root / f"{i}_{p.name}"
+            cand = dst_root / f"{i}_{orig.name}"
             if not cand.exists():
                 dst = cand
                 break
             i += 1
 
-    shutil.copy2(p, dst)
-    rel = os.path.relpath(dst, export_dir)
-    if rel not in seen_rel:
-        seen_rel.add(rel)
-        files_ordered.append((rel, is_header))
+    shutil.copy2(orig, dst)
+    _add_entry(dst, is_header, orig)
 
 def parse_list(list_path: Path):
     lp = list_path.resolve()
@@ -121,26 +140,101 @@ def parse_list(list_path: Path):
                     add_src(base, t)
             i += 1
 
-# Parse the top-level list (recurses via -f chains)
+def resolve_include(include_name: str, includer_ent: dict) -> Path | None:
+    """
+    Resolve an include name against:
+      1) including file's ORIGINAL directory
+      2) each +incdir+ directory from the tool filelist
+    Return the first existing absolute path or None.
+    """
+    # if include has directories, preserve them
+    name_path = Path(include_name)
+    # prefer original source dir of includer if known
+    search_roots = []
+    if includer_ent.get("orig") is not None:
+        search_roots.append(includer_ent["orig"].parent)
+    # then toollist-given +incdir+ dirs
+    for d in incdirs:
+        search_roots.append(Path(d))
+    # now try to resolve
+    for root in search_roots:
+        cand = (root / name_path).resolve()
+        if cand.exists():
+            return cand
+    return None
+
+def copy_include(include_name: str, src_abs: Path):
+    """
+    Copy an include file to export include/ tree, preserving subpath if include_name has directories.
+    Mark as header and enqueue for further scanning.
+    """
+    ensure_dir(inc_dir)
+    # Preserve the include's path (e.g. "prim/prim_assert.sv" -> include/prim/prim_assert.sv)
+    dst = inc_dir / include_name
+    dst_parent = dst.parent
+    dst_parent.mkdir(parents=True, exist_ok=True)
+    if not dst.exists():
+        shutil.copy2(src_abs, dst)
+    # Register (or get) entry
+    ent = _add_entry(dst, True, src_abs)
+    return ent
+
+# 1) Parse the top-level tool filelist (recurses via -f chains) and copy those files
 parse_list(root_list)
 
-# Decide .core filename
+# 2) Scan copied files for `include "..."`, resolve and recursively copy missing includes
+queue = list(files_ordered)  # shallow copy; we'll append as we discover more
+seen_includes = set()        # keys are normalized include_name strings relative to inc_dir layout
+
+while queue:
+    ent = queue.pop(0)
+    # Only parse HDL text files
+    try:
+        with open(ent["dst"], "r", encoding="utf-8", errors="ignore") as f:
+            for raw in f:
+                m = RE_INCLUDE.match(raw)
+                if not m:
+                    continue
+                inc_name = m.group(1)
+                # collapse any leading ./ in include_name
+                while inc_name.startswith("./"):
+                    inc_name = inc_name[2:]
+                key = inc_name  # normalized include path as it will be placed under include/
+                if key in seen_includes:
+                    continue
+                # resolve in original space
+                src_abs = resolve_include(inc_name, ent)
+                if src_abs is None:
+                    # couldn't resolve; warn and continue
+                    print(f"WARNING: Unable to resolve include '{inc_name}' referenced by {ent['rel']}", file=sys.stderr)
+                    continue
+                # copy to include tree and enqueue for nested scanning
+                new_ent = copy_include(inc_name, src_abs)
+                seen_includes.add(key)
+                if new_ent is not None:
+                    queue.append(new_ent)
+    except Exception:
+        # ignore unreadable/binary
+        continue
+
+# 3) Emit CAPI2 core (no include_dirs; use is_include_file instead)
 file_base = CORE_FILE_BASENAME if CORE_FILE_BASENAME else core_name.split(":")[-1]
 core_path = export_dir / f"{file_base}.core"
 
-# Emit CAPI2 core (no include_dirs; use is_include_file instead)
 with core_path.open("w") as core:
     core.write("CAPI=2:\n\n")
     core.write(f'name: "{core_name}:{core_ver}"\n')
-    core.write('description: "Self-contained Ibex snapshot (from tool filelist; no generators)"\n\n')
+    core.write('description: "Self-contained Ibex snapshot (from tool filelist; includes resolved recursively; no generators)"\n\n')
     core.write("filesets:\n")
     core.write("  files_all:\n")
     core.write("    files:\n")
-    for rel, is_hdr in files_ordered:
+    for ent in files_ordered:
+        rel = ent["rel"]
+        is_hdr = ent["is_header"]
         core.write(f"      - {rel}: {{file_type: systemVerilogSource")
         if is_hdr:
             core.write(", is_include_file: true")
-        core.write("}\n")  # <-- single closing brace, NOT '}}'
+        core.write("}\n")
     core.write("\n")
     core.write("targets:\n")
     core.write("  default:\n")
