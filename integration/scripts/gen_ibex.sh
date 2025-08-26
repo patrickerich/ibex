@@ -164,11 +164,11 @@ fi
 
 # ---- run exporter: tool-filelist -> monocore snapshot -----------------------
 # Pass env knobs to Python:
-#   TOPLEVEL, DEFINES (seeded), INCLUDE_FALLBACK (optional), CORE_FILE_BASENAME (optional)
+#   TOPLEVEL, DEFINES (seeded), INCLUDE_FALLBACK (optional),
+#   CORE_FILE_BASENAME override to control the on-disk .core filename.
 export TOPLEVEL
 export INCLUDE_FALLBACK
-# Users may set CORE_FILE_BASENAME externally to override on-disk .core filename.
-export CORE_FILE_BASENAME="${CORE_FILE_BASENAME:-}"
+export CORE_FILE_BASENAME="${MYCORP}_ibex_${CFG}"
 
 DEFINES="${DEF_HINTS}" \
 python3 "${THIS_DIR}/toollist_to_monocore.py" \
