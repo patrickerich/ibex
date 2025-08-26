@@ -102,47 +102,53 @@ Sanity check a config (from repo root):
         name: "<MYCORP>:ibex:wrapper:1.0"
 
 - Wrapper RTL: `integration/wrappers/ibex_wrapper.sv`
-  The module (`ibex_wrapper`) exposes ibex_top’s native ports (instr/data req/gnt/rvalid, IRQs, debug, etc.). Delete what you don’t need.
+  The module (`ibex_wrapper`) exposes ibex_top’s native ports (instr/data, IRQs, debug, crash-dump, DFT, scrambling, RVFI under `RVFI`, etc.). It’s a zero-logic pass-through; trim or extend as needed.
 
-If you rename the wrapper’s core name (e.g., change `<MYCORP>`), the exporter auto-derives `<MYCORP>` from `WRAPPER_CORE` (or from the wrapper `.core` file) and uses it in output paths and names.
-
----
-
-## Command reference
-
-Most common:
-
-    FORCE=1 make -C integration vendor CFG=<cfg>
-
-Useful environment knobs:
-- `CFG` – configuration key (e.g. `small`, `opentitan`, `socrates`)
-- `FORCE=1` – wipe `build/ibex_<cfg>` and `integration/vendor_out/*` before regenerating
-- `TARGET=sim` – FuseSoC target for setup/build (default `sim`)
-- `WRAPPER_CORE="<MYCORP>:ibex:wrapper"` – which wrapper core to run
-- `CORE_VER=1.0` – version embedded in exported core name
-- `TOPLEVEL=ibex_top` – override exported toplevel (default `ibex_wrapper`)
-- `OUTDIR=<path>` – change export root (default `integration/vendor_out/<MYCORP>_ibex_<CFG>`)
-- `BUILDROOT=<path>` – change build dir (default `build/ibex_<CFG>`)
-
-Examples:
-
-    TOPLEVEL=ibex_top FORCE=1 make -C integration vendor CFG=small
-    WRAPPER_CORE=acme:ibex:wrapper FORCE=1 make -C integration vendor CFG=opentitan
-    OUTDIR=/tmp/exports FORCE=1 make -C integration vendor CFG=socrates
+If you rename the wrapper’s core name (e.g., change `<MYCORP>`), the exporter auto-derives `<MYCORP>` from `WRAPPER_CORE` and uses it in output paths and names.
 
 ---
 
-## How it works (nutshell)
+## Usage notes
 
-1. `scripts/venv.sh` creates/activates `integration/.venv` and installs upstream requirements.
-2. `scripts/gen_ibex.sh` resolves the config via `integration/configs/ibex_configs.yml` (if present) or `ibex_configs.yaml`.
-3. It runs FuseSoC on the wrapper core (`<MYCORP>:ibex:wrapper`) with `--target=sim --setup` (and a minimal `--build` if needed) to obtain a **tool filelist** (`verilator.f`, `.vc`, or `.f`).
-4. `scripts/toollist_to_monocore.py` parses that list, copies HDL into `rtl/` and headers into `include/`, and emits a single `.core`:
-   - headers are detected via `+incdir+…` and by extension (`.svh`/`.vh`)
-   - `is_include_file: true` is used; `include_dirs:` is not emitted
-5. `METADATA.json` records the Ibex commit SHA, config, tool list type, and UTC timestamp.
+### Include handling
 
-The result is a **standalone** `vendor_out/<MYCORP>_ibex_<CFG>/` suitable for direct consumption.
+The vendoring script is *preprocessor-aware*: it only vendors headers from
+`` `include`` directives that are **active** under the current `+define+…` set
+found in the tool filelist.
+
+- For normal sim/synth builds, formal headers (e.g. `formal_tb_frag.svh`) are ignored
+  since `FORMAL` isn’t defined.
+- If you *do* want to build with those headers (e.g. for formal verification),
+  make sure your target passes `+define+FORMAL` so the vendoring picks them up.
+- There’s an optional fallback (`INCLUDE_FALLBACK=project`) to search the repo
+  for missing includes by basename, but it’s disabled by default to avoid
+  accidentally pulling in formal-only files.
+
+### Define hints
+
+Some backends (notably Verilator) don’t put their `-D` flags into the filelist.
+The exporter therefore supports **define hints**:
+
+- Set `DEFINES=VERILATOR` (or `SYNTHESIS`, `YOSYS`, comma-separated) to seed the
+  preprocessor model during vendoring.
+- Heuristic: when the tool filelist looks like Verilator (`verilator.f` or `*.vc`),
+  `VERILATOR` is auto-seeded. You can add more with `DEFINES=…`.
+
+Example:
+
+    # Synthesis-flavored snapshot (dummy assert macros)
+    FORCE=1 DEFINES=SYNTHESIS make -C integration vendor CFG=socrates
+
+### Assert macro family
+
+When the script encounters one of:
+- `prim_assert_dummy_macros.svh`
+- `prim_assert_yosys_macros.svh`
+- `prim_assert_standard_macros.svh`
+
+…it automatically vendors the **siblings** too. This makes a single snapshot usable across
+sim (Verilator), synth, and Yosys without regenerating, while keeping formal headers out
+unless `FORMAL` is defined.
 
 ---
 
@@ -163,24 +169,16 @@ The result is a **standalone** `vendor_out/<MYCORP>_ibex_<CFG>/` suitable for di
         FORCE=1 make -C integration vendor CFG=<cfg>
 
 - “No tool filelist found”
-  Some backends don’t emit a filelist on `--setup`. The script triggers a minimal `--build` to flush it out. This may require Verilator (or change `TARGET` to a backend that emits on setup in your environment).
+  Some backends don’t emit a filelist on `--setup`. The script triggers a minimal `--build`
+  to flush it out. This may require Verilator (or change `TARGET` to a backend that emits on setup).
+
+- Includes missing
+  Ensure your defines match your intended use:
+  - Add `DEFINES=VERILATOR` (or `SYNTHESIS`, `YOSYS`) when generating.
+  - Optionally set `INCLUDE_FALLBACK=project` to allow repo-wide unique basename search.
 
 - `ibex_config.py: error: unrecognized arguments`
   Flags must precede positionals. The script calls:
   `./util/ibex_config.py --config_filename <overlay> <CFG> fusesoc_opts`
 
-- Headers not found
-  The exporter marks headers by include dir membership and by extension. If your tree uses unusual header conventions, ensure your core/wrapper contributes correct `+incdir+…` in the tool filelist.
-
 ---
-
-## Versioning & licensing
-
-- Snapshots are Apache-2.0–licensed Ibex sources; preserve headers.
-- `METADATA.json` records the Ibex commit SHA and config for traceability.
-- Tag this repo when you cut a snapshot (e.g., `ibex-vendor/<cfg>/<YYYYMMDD>`).
-
----
-
-
-
