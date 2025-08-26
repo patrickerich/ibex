@@ -1,0 +1,145 @@
+CAPI=2:
+
+name: "mycorp:ibex:socrates:1.0"
+description: "Self-contained Ibex snapshot (from tool filelist; preproc-aware includes; assert-family bundled; no generators)"
+
+filesets:
+  files_all:
+    files:
+      - include/prim_assert.sv: {file_type: systemVerilogSource, is_include_file: true}
+      - include/prim_util_memload.svh: {file_type: systemVerilogSource, is_include_file: true}
+      - include/dv_fcov_macros.svh: {file_type: systemVerilogSource, is_include_file: true}
+      - include/prim_util_get_scramble_params.svh: {file_type: systemVerilogSource, is_include_file: true}
+      - include/prim_assert_dummy_macros.svh: {file_type: systemVerilogSource, is_include_file: true}
+      - include/prim_assert_standard_macros.svh: {file_type: systemVerilogSource, is_include_file: true}
+      - include/prim_assert_yosys_macros.svh: {file_type: systemVerilogSource, is_include_file: true}
+      - include/prim_assert_sec_cm.svh: {file_type: systemVerilogSource, is_include_file: true}
+      - include/prim_flop_macros.sv: {file_type: systemVerilogSource, is_include_file: true}
+      - rtl/ibex_pkg.sv: {file_type: systemVerilogSource}
+      - rtl/prim_pkg.sv: {file_type: systemVerilogSource}
+      - rtl/prim_ram_1p_pkg.sv: {file_type: systemVerilogSource}
+      - rtl/prim_cipher_pkg.sv: {file_type: systemVerilogSource}
+      - rtl/prim_generic_and2.sv: {file_type: systemVerilogSource}
+      - rtl/prim_generic_buf.sv: {file_type: systemVerilogSource}
+      - rtl/prim_generic_clock_gating.sv: {file_type: systemVerilogSource}
+      - rtl/prim_generic_flop.sv: {file_type: systemVerilogSource}
+      - rtl/prim_secded_pkg.sv: {file_type: systemVerilogSource}
+      - rtl/prim_secded_22_16_dec.sv: {file_type: systemVerilogSource}
+      - rtl/prim_secded_22_16_enc.sv: {file_type: systemVerilogSource}
+      - rtl/prim_secded_28_22_dec.sv: {file_type: systemVerilogSource}
+      - rtl/prim_secded_28_22_enc.sv: {file_type: systemVerilogSource}
+      - rtl/prim_secded_39_32_dec.sv: {file_type: systemVerilogSource}
+      - rtl/prim_secded_39_32_enc.sv: {file_type: systemVerilogSource}
+      - rtl/prim_secded_64_57_dec.sv: {file_type: systemVerilogSource}
+      - rtl/prim_secded_64_57_enc.sv: {file_type: systemVerilogSource}
+      - rtl/prim_secded_72_64_dec.sv: {file_type: systemVerilogSource}
+      - rtl/prim_secded_72_64_enc.sv: {file_type: systemVerilogSource}
+      - rtl/prim_secded_hamming_22_16_dec.sv: {file_type: systemVerilogSource}
+      - rtl/prim_secded_hamming_22_16_enc.sv: {file_type: systemVerilogSource}
+      - rtl/prim_secded_hamming_39_32_dec.sv: {file_type: systemVerilogSource}
+      - rtl/prim_secded_hamming_39_32_enc.sv: {file_type: systemVerilogSource}
+      - rtl/prim_secded_hamming_72_64_dec.sv: {file_type: systemVerilogSource}
+      - rtl/prim_secded_hamming_72_64_enc.sv: {file_type: systemVerilogSource}
+      - rtl/prim_secded_hamming_76_68_dec.sv: {file_type: systemVerilogSource}
+      - rtl/prim_secded_hamming_76_68_enc.sv: {file_type: systemVerilogSource}
+      - rtl/prim_secded_inv_22_16_dec.sv: {file_type: systemVerilogSource}
+      - rtl/prim_secded_inv_22_16_enc.sv: {file_type: systemVerilogSource}
+      - rtl/prim_secded_inv_28_22_dec.sv: {file_type: systemVerilogSource}
+      - rtl/prim_secded_inv_28_22_enc.sv: {file_type: systemVerilogSource}
+      - rtl/prim_secded_inv_39_32_dec.sv: {file_type: systemVerilogSource}
+      - rtl/prim_secded_inv_39_32_enc.sv: {file_type: systemVerilogSource}
+      - rtl/prim_secded_inv_64_57_dec.sv: {file_type: systemVerilogSource}
+      - rtl/prim_secded_inv_64_57_enc.sv: {file_type: systemVerilogSource}
+      - rtl/prim_secded_inv_72_64_dec.sv: {file_type: systemVerilogSource}
+      - rtl/prim_secded_inv_72_64_enc.sv: {file_type: systemVerilogSource}
+      - rtl/prim_secded_inv_hamming_22_16_dec.sv: {file_type: systemVerilogSource}
+      - rtl/prim_secded_inv_hamming_22_16_enc.sv: {file_type: systemVerilogSource}
+      - rtl/prim_secded_inv_hamming_39_32_dec.sv: {file_type: systemVerilogSource}
+      - rtl/prim_secded_inv_hamming_39_32_enc.sv: {file_type: systemVerilogSource}
+      - rtl/prim_secded_inv_hamming_72_64_dec.sv: {file_type: systemVerilogSource}
+      - rtl/prim_secded_inv_hamming_72_64_enc.sv: {file_type: systemVerilogSource}
+      - rtl/prim_secded_inv_hamming_76_68_dec.sv: {file_type: systemVerilogSource}
+      - rtl/prim_secded_inv_hamming_76_68_enc.sv: {file_type: systemVerilogSource}
+      - rtl/prim_xilinx_and2.sv: {file_type: systemVerilogSource}
+      - rtl/prim_xilinx_buf.sv: {file_type: systemVerilogSource}
+      - rtl/prim_xilinx_clock_gating.sv: {file_type: systemVerilogSource}
+      - rtl/prim_xilinx_clock_mux2.sv: {file_type: systemVerilogSource}
+      - rtl/prim_xilinx_flop.sv: {file_type: systemVerilogSource}
+      - rtl/ibex_icache.sv: {file_type: systemVerilogSource}
+      - rtl/prim_and2.sv: {file_type: systemVerilogSource}
+      - rtl/prim_buf.sv: {file_type: systemVerilogSource}
+      - rtl/prim_clock_gating.sv: {file_type: systemVerilogSource}
+      - rtl/prim_flop.sv: {file_type: systemVerilogSource}
+      - rtl/prim_subst_perm.sv: {file_type: systemVerilogSource}
+      - rtl/prim_present.sv: {file_type: systemVerilogSource}
+      - rtl/prim_prince.sv: {file_type: systemVerilogSource}
+      - rtl/prim_count_pkg.sv: {file_type: systemVerilogSource}
+      - rtl/prim_count.sv: {file_type: systemVerilogSource}
+      - rtl/prim_generic_clock_mux2.sv: {file_type: systemVerilogSource}
+      - rtl/prim_generic_ram_1p.sv: {file_type: systemVerilogSource}
+      - rtl/prim_lfsr.sv: {file_type: systemVerilogSource}
+      - rtl/prim_util_pkg.sv: {file_type: systemVerilogSource}
+      - rtl/prim_clock_mux2.sv: {file_type: systemVerilogSource}
+      - rtl/prim_badbit_ram_1p.sv: {file_type: systemVerilogSource}
+      - rtl/prim_onehot_enc.sv: {file_type: systemVerilogSource}
+      - rtl/prim_onehot_mux.sv: {file_type: systemVerilogSource}
+      - rtl/prim_onehot_check.sv: {file_type: systemVerilogSource}
+      - rtl/prim_ram_1p.sv: {file_type: systemVerilogSource}
+      - rtl/prim_mubi_pkg.sv: {file_type: systemVerilogSource}
+      - rtl/prim_mubi4_sender.sv: {file_type: systemVerilogSource}
+      - rtl/prim_mubi4_sync.sv: {file_type: systemVerilogSource}
+      - rtl/prim_mubi4_dec.sv: {file_type: systemVerilogSource}
+      - rtl/prim_mubi8_sender.sv: {file_type: systemVerilogSource}
+      - rtl/prim_mubi8_sync.sv: {file_type: systemVerilogSource}
+      - rtl/prim_mubi8_dec.sv: {file_type: systemVerilogSource}
+      - rtl/prim_mubi12_sender.sv: {file_type: systemVerilogSource}
+      - rtl/prim_mubi12_sync.sv: {file_type: systemVerilogSource}
+      - rtl/prim_mubi12_dec.sv: {file_type: systemVerilogSource}
+      - rtl/prim_mubi16_sender.sv: {file_type: systemVerilogSource}
+      - rtl/prim_mubi16_sync.sv: {file_type: systemVerilogSource}
+      - rtl/prim_mubi16_dec.sv: {file_type: systemVerilogSource}
+      - rtl/prim_mubi20_sender.sv: {file_type: systemVerilogSource}
+      - rtl/prim_mubi20_sync.sv: {file_type: systemVerilogSource}
+      - rtl/prim_mubi20_dec.sv: {file_type: systemVerilogSource}
+      - rtl/prim_mubi24_sender.sv: {file_type: systemVerilogSource}
+      - rtl/prim_mubi24_sync.sv: {file_type: systemVerilogSource}
+      - rtl/prim_mubi24_dec.sv: {file_type: systemVerilogSource}
+      - rtl/prim_mubi28_sender.sv: {file_type: systemVerilogSource}
+      - rtl/prim_mubi28_sync.sv: {file_type: systemVerilogSource}
+      - rtl/prim_mubi28_dec.sv: {file_type: systemVerilogSource}
+      - rtl/prim_mubi32_sender.sv: {file_type: systemVerilogSource}
+      - rtl/prim_mubi32_sync.sv: {file_type: systemVerilogSource}
+      - rtl/prim_mubi32_dec.sv: {file_type: systemVerilogSource}
+      - rtl/ibex_alu.sv: {file_type: systemVerilogSource}
+      - rtl/ibex_branch_predict.sv: {file_type: systemVerilogSource}
+      - rtl/ibex_compressed_decoder.sv: {file_type: systemVerilogSource}
+      - rtl/ibex_controller.sv: {file_type: systemVerilogSource}
+      - rtl/ibex_cs_registers.sv: {file_type: systemVerilogSource}
+      - rtl/ibex_csr.sv: {file_type: systemVerilogSource}
+      - rtl/ibex_counter.sv: {file_type: systemVerilogSource}
+      - rtl/ibex_decoder.sv: {file_type: systemVerilogSource}
+      - rtl/ibex_ex_block.sv: {file_type: systemVerilogSource}
+      - rtl/ibex_fetch_fifo.sv: {file_type: systemVerilogSource}
+      - rtl/ibex_id_stage.sv: {file_type: systemVerilogSource}
+      - rtl/ibex_if_stage.sv: {file_type: systemVerilogSource}
+      - rtl/ibex_load_store_unit.sv: {file_type: systemVerilogSource}
+      - rtl/ibex_multdiv_fast.sv: {file_type: systemVerilogSource}
+      - rtl/ibex_multdiv_slow.sv: {file_type: systemVerilogSource}
+      - rtl/ibex_prefetch_buffer.sv: {file_type: systemVerilogSource}
+      - rtl/ibex_pmp.sv: {file_type: systemVerilogSource}
+      - rtl/ibex_wb_stage.sv: {file_type: systemVerilogSource}
+      - rtl/ibex_dummy_instr.sv: {file_type: systemVerilogSource}
+      - rtl/ibex_core.sv: {file_type: systemVerilogSource}
+      - rtl/prim_ram_1p_adv.sv: {file_type: systemVerilogSource}
+      - rtl/prim_ram_1p_scr.sv: {file_type: systemVerilogSource}
+      - rtl/ibex_register_file_ff.sv: {file_type: systemVerilogSource}
+      - rtl/ibex_register_file_fpga.sv: {file_type: systemVerilogSource}
+      - rtl/ibex_register_file_latch.sv: {file_type: systemVerilogSource}
+      - rtl/ibex_lockstep.sv: {file_type: systemVerilogSource}
+      - rtl/ibex_top.sv: {file_type: systemVerilogSource}
+      - rtl/ibex_wrapper.sv: {file_type: systemVerilogSource}
+
+targets:
+  default:
+    filesets: [files_all]
+    toplevel: ibex_wrapper
