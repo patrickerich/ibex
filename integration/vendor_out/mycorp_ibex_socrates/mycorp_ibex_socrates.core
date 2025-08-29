@@ -11,8 +11,8 @@ filesets:
       - include/dv_fcov_macros.svh: {file_type: systemVerilogSource, is_include_file: true}
       - include/prim_util_get_scramble_params.svh: {file_type: systemVerilogSource, is_include_file: true}
       - include/prim_assert_dummy_macros.svh: {file_type: systemVerilogSource, is_include_file: true}
-      - include/prim_assert_standard_macros.svh: {file_type: systemVerilogSource, is_include_file: true}
       - include/prim_assert_yosys_macros.svh: {file_type: systemVerilogSource, is_include_file: true}
+      - include/prim_assert_standard_macros.svh: {file_type: systemVerilogSource, is_include_file: true}
       - include/prim_assert_sec_cm.svh: {file_type: systemVerilogSource, is_include_file: true}
       - include/prim_flop_macros.sv: {file_type: systemVerilogSource, is_include_file: true}
       - rtl/ibex_pkg.sv: {file_type: systemVerilogSource}
