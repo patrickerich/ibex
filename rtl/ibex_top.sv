@@ -741,8 +741,11 @@ module ibex_top import ibex_pkg::*; #(
           .cfg_rsp_o   (ram_cfg_rsp_icache_data_o[way])
         );
 
-        assign icache_tag_alert  = '{default:'b0};
-        assign icache_data_alert = '{default:'b0};
+        // assign icache_tag_alert  = '{default:'b0};
+        // assign icache_data_alert = '{default:'b0};
+        // Avoid multiple continuous assignments by assigning per-way
+        assign icache_tag_alert[way]  = 1'b0;
+        assign icache_data_alert[way] = 1'b0;
       end
     end
 

@@ -1,10 +1,10 @@
 {
-  "ibex_git_sha": "21ccabca033dd38acfe40831442c12130081c1a3",
+  "ibex_git_sha": "a3ea19507e0a1ccb74db5330b18544505ef221cd",
   "config": "socrates",
   "origin": "tool-filelist",
   "tool_list": "mycorp_ibex_wrapper_1.0.vc",
   "opts": "--RV32E=0 --RV32M=ibex_pkg::RV32MSingleCycle --RV32B=ibex_pkg::RV32BOTEarlGrey --RegFile=ibex_pkg::RegFileFF --BranchTargetALU=1 --WritebackStage=1 --ICache=1 --ICacheECC=1 --ICacheScramble=1 --BranchPredictor=0 --DbgTriggerEn=1 --SecureIbex=1 --PMPEnable=1 --PMPGranularity=0 --PMPNumRegions=16 --MHPMCounterNum=10 --MHPMCounterWidth=32",
   "defines_hints": "VERILATOR",
   "include_fallback": "disabled",
-  "generated_utc": "2025-08-29T13:50:53Z"
+  "generated_utc": "2025-09-24T12:12:57Z"
 }

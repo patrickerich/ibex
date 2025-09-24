@@ -728,8 +728,11 @@ module ibex_top import ibex_pkg::*; #(
           .cfg_i       (ram_cfg_i)
         );
 
-        assign icache_tag_alert  = '{default:'b0};
-        assign icache_data_alert = '{default:'b0};
+        // assign icache_tag_alert  = '{default:'b0};
+        // assign icache_data_alert = '{default:'b0};
+        // Avoid multiple continuous assignments by assigning per-way
+        assign icache_tag_alert[way]  = 1'b0;
+        assign icache_data_alert[way] = 1'b0;
       end
     end
 
