@@ -1,20 +1,12 @@
 CAPI=2:
 
 name: "mycorp:ibex:socrates:1.0"
-description: "Self-contained Ibex snapshot (from tool filelist; preproc-aware includes; assert-family bundled; no generators)"
+description: "Self-contained Ibex snapshot (from tool filelist; includes resolved recursively; no generators)"
 
 filesets:
   files_all:
     files:
-      - include/prim_assert.sv: {file_type: systemVerilogSource, is_include_file: true}
-      - include/prim_util_memload.svh: {file_type: systemVerilogSource, is_include_file: true}
-      - include/dv_fcov_macros.svh: {file_type: systemVerilogSource, is_include_file: true}
-      - include/prim_util_get_scramble_params.svh: {file_type: systemVerilogSource, is_include_file: true}
-      - include/prim_assert_dummy_macros.svh: {file_type: systemVerilogSource, is_include_file: true}
-      - include/prim_assert_yosys_macros.svh: {file_type: systemVerilogSource, is_include_file: true}
-      - include/prim_assert_standard_macros.svh: {file_type: systemVerilogSource, is_include_file: true}
-      - include/prim_assert_sec_cm.svh: {file_type: systemVerilogSource, is_include_file: true}
-      - include/prim_flop_macros.sv: {file_type: systemVerilogSource, is_include_file: true}
+      - include/include: {file_type: systemVerilogSource, is_include_file: true}
       - rtl/ibex_pkg.sv: {file_type: systemVerilogSource}
       - rtl/prim_pkg.sv: {file_type: systemVerilogSource}
       - rtl/prim_ram_1p_pkg.sv: {file_type: systemVerilogSource}

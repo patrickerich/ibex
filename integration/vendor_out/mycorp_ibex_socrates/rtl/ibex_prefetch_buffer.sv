@@ -42,7 +42,7 @@ module ibex_prefetch_buffer #(
   // localparam int unsigned NUM_REQS  = 2;
   // Increase outstanding instruction requests to improve throughput across CDC.
   // Note: Fetch FIFO depth = NUM_REQS + 1 (see ibex_fetch_fifo), arrays and loops derive from NUM_REQS.
-  localparam int unsigned NUM_REQS  = 4;
+  localparam int unsigned NUM_REQS  = 7;
 
   logic                valid_new_req, valid_req;
   logic                valid_req_d, valid_req_q;
