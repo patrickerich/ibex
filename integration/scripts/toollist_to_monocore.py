@@ -13,6 +13,7 @@ if len(sys.argv) != 5:
 
 TOPLEVEL = os.environ.get("TOPLEVEL", "ibex_wrapper")
 CORE_FILE_BASENAME = os.environ.get("CORE_FILE_BASENAME")  # optional override for on-disk .core name
+WRAPPER_PARAM_OVERRIDES = os.environ.get("WRAPPER_PARAM_OVERRIDES", "")
 
 root_list = Path(sys.argv[1]).resolve()
 export_dir = Path(sys.argv[2]).resolve()
@@ -39,6 +40,100 @@ HDL_EXTS = (".sv", ".svh", ".vh", ".v")
 HEADER_EXTS = (".svh", ".vh")
 # Basic regex to catch: `include "foo/bar.sv"`  (ignores comments/block noise heuristically)
 RE_INCLUDE = re.compile(r'^\s*`include\s+"([^"]+)"')
+
+KNOWN_OPTIONAL_INCLUDES = {
+    "formal_tb_frag.svh",
+}
+
+CFG_PARAM_NAMES = {
+    "RV32E", "RV32M", "RV32B", "RV32ZC", "RegFile", "BranchTargetALU", "WritebackStage",
+    "ICache", "ICacheECC", "ICacheScramble", "BranchPredictor", "DbgTriggerEn",
+    "SecureIbex", "PMPEnable", "PMPGranularity", "PMPNumRegions", "MHPMCounterNum",
+    "MHPMCounterWidth"
+}
+
+CFG_BOOL_NAMES = {
+    "RV32E", "BranchTargetALU", "WritebackStage", "ICache", "ICacheECC", "ICacheScramble",
+    "BranchPredictor", "DbgTriggerEn", "SecureIbex", "PMPEnable"
+}
+
+def parse_wrapper_param_overrides(raw: str):
+    """Parse '--Name=Value' options into a dict of known wrapper parameter values."""
+    parsed = {}
+    if not raw.strip():
+        return parsed
+
+    try:
+        toks = shlex.split(raw)
+    except ValueError:
+        return parsed
+
+    for tok in toks:
+        if not tok.startswith("--") or "=" not in tok:
+            continue
+        name, val = tok[2:].split("=", 1)
+        if name in CFG_PARAM_NAMES:
+            parsed[name] = val
+    return parsed
+
+def _format_param_default(name: str, value: str) -> str:
+    if name in CFG_BOOL_NAMES:
+        return "1'b1" if value in ("1", "true", "True") else "1'b0"
+    return value
+
+def update_wrapper_defaults(wrapper_path: Path, param_overrides) -> None:
+    """Rewrite ibex_wrapper parameter defaults to match selected config values."""
+    if not wrapper_path.exists() or not param_overrides:
+        return
+
+    lines = wrapper_path.read_text(encoding="utf-8", errors="ignore").splitlines(keepends=True)
+    out_lines = []
+
+    for line in lines:
+        replaced = False
+        for name, value in param_overrides.items():
+            pattern = rf'^(\s*parameter\s+[^=]+\b{name}\b\s*=\s*)([^,]+)(,.*)$'
+            m = re.match(pattern, line)
+            if m:
+                new_line = f"{m.group(1)}{_format_param_default(name, value)}{m.group(3)}"
+                if line.endswith("\n") and not new_line.endswith("\n"):
+                    new_line += "\n"
+                out_lines.append(new_line)
+                replaced = True
+                break
+        if not replaced:
+            out_lines.append(line)
+
+    wrapper_path.write_text("".join(out_lines), encoding="utf-8")
+
+def rename_wrapper_to_toplevel(toplevel: str):
+    """Rename copied ibex_wrapper.sv to <toplevel>.sv and update module name."""
+    if toplevel == "ibex_wrapper":
+        return rtl_dir / "ibex_wrapper.sv"
+
+    src = rtl_dir / "ibex_wrapper.sv"
+    dst = rtl_dir / f"{toplevel}.sv"
+    if not src.exists():
+        return dst
+
+    text = src.read_text(encoding="utf-8", errors="ignore")
+    text = re.sub(r'\bmodule\s+ibex_wrapper\b', f'module {toplevel}', text, count=1)
+    dst.write_text(text, encoding="utf-8")
+    src.unlink()
+
+    old_rel = os.path.relpath(src, export_dir)
+    new_rel = os.path.relpath(dst, export_dir)
+    if old_rel in seen_rel:
+        seen_rel.remove(old_rel)
+    seen_rel.add(new_rel)
+
+    for ent in files_ordered:
+        if ent["dst"] == src.resolve():
+            ent["dst"] = dst.resolve()
+            ent["rel"] = new_rel
+            break
+
+    return dst
 
 def _resolve(base: Path, p: Path) -> Path:
     return p if p.is_absolute() else (base / p).resolve()
@@ -205,6 +300,8 @@ while queue:
                 # resolve in original space
                 src_abs = resolve_include(inc_name, ent)
                 if src_abs is None:
+                    if Path(inc_name).name in KNOWN_OPTIONAL_INCLUDES:
+                        continue
                     # couldn't resolve; warn and continue
                     print(f"WARNING: Unable to resolve include '{inc_name}' referenced by {ent['rel']}", file=sys.stderr)
                     continue
@@ -216,6 +313,11 @@ while queue:
     except Exception:
         # ignore unreadable/binary
         continue
+
+# 2b) Rename copied wrapper to match toplevel and align defaults with selected config values.
+wrapper_path = rename_wrapper_to_toplevel(TOPLEVEL)
+wrapper_defaults = parse_wrapper_param_overrides(WRAPPER_PARAM_OVERRIDES)
+update_wrapper_defaults(wrapper_path, wrapper_defaults)
 
 # 3) Emit CAPI2 core (no include_dirs; use is_include_file instead)
 file_base = CORE_FILE_BASENAME if CORE_FILE_BASENAME else core_name.split(":")[-1]

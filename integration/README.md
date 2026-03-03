@@ -16,7 +16,7 @@ Two common ways to reuse Ibex:
    • Pros: downstream gets **plain SystemVerilog** + one `.core`; portable and reproducible; no generators required
    • Cons: you regenerate when configs change (scripted here)
 
-This integration keeps the generator environment local, then emits `vendor_out/<MYCORP>_ibex_<CFG>/` as the consumable artifact.
+This integration keeps the generator environment local, then emits `vendor_out/<CFG>_ibex/` as the consumable artifact.
 
 ---
 
@@ -33,13 +33,13 @@ This integration keeps the generator environment local, then emits `vendor_out/<
     │   ├─ toollist_to_monocore.py  # turns tool filelist -> single .core
     │   └─ venv.sh                  # creates/activates integration/.venv
     ├─ vendor_out/
-    │   └─ <MYCORP>_ibex_<CFG>/
+    │   └─ <CFG>_ibex/
     │       ├─ rtl/                 # copied sources
     │       ├─ include/             # copied headers (only if any)
-    │       ├─ <MYCORP>_ibex_<CFG>.core
+    │       ├─ lowrisc_<CFG>_ibex.core
     │       └─ METADATA.json
     └─ wrappers/
-        ├─ <MYCORP>_ibex_wrapper.core  # wrapper core you invoke via FuseSoC
+        ├─ lowrisc_ibex_wrapper.core   # wrapper core you invoke via FuseSoC
         └─ ibex_wrapper.sv             # wrapper module around ibex_top
 
 Note: The exporter still uses upstream `util/ibex_config.py` and the lowRISC core library during generation; the **output** does not.
@@ -66,17 +66,17 @@ Pick or create a config name (e.g. `small`, `opentitan`, or your own in the over
 
 This produces:
 
-    integration/vendor_out/<MYCORP>_ibex_socrates/
+    integration/vendor_out/socrates_ibex/
     ├─ rtl/
     ├─ include/                      # present only if headers were copied
-    ├─ <MYCORP>_ibex_socrates.core   # core name: "<MYCORP>:ibex:socrates:1.0"
+    ├─ lowrisc_socrates_ibex.core    # core name: "lowrisc:ibex:socrates:1.0"
     └─ METADATA.json
 
 Defaults:
-- Wrapper core invoked: `WRAPPER_CORE = <MYCORP>:ibex:wrapper`
-- Exported core name: `<MYCORP>:ibex:<CFG>:<CORE_VER>` (`CORE_VER=1.0`)
-- Exported file name: `<MYCORP>_ibex_<CFG>.core`
-- Toplevel inside export: `ibex_wrapper`
+- Wrapper core invoked: `WRAPPER_CORE = lowrisc:ibex:wrapper`
+- Exported core name: `lowrisc:ibex:<CFG>:<CORE_VER>` (`CORE_VER=1.0`)
+- Exported file name: `lowrisc_<CFG>_ibex.core`
+- Toplevel inside export: `<CFG>_ibex_wrapper`
 
 ---
 
@@ -96,15 +96,39 @@ Sanity check a config (from repo root):
 
 ## Wrapper core & module
 
-- Core file on disk: `integration/wrappers/<MYCORP>_ibex_wrapper.core`
+- Core file on disk: `integration/wrappers/lowrisc_ibex_wrapper.core`
   Inside it, set:
 
-        name: "<MYCORP>:ibex:wrapper:1.0"
+  name: "lowrisc:ibex:wrapper:1.0"
 
 - Wrapper RTL: `integration/wrappers/ibex_wrapper.sv`
   The module (`ibex_wrapper`) exposes ibex_top’s native ports (instr/data, IRQs, debug, crash-dump, DFT, scrambling, RVFI under `RVFI`, etc.). It’s a zero-logic pass-through; trim or extend as needed.
+  Config parameters forwarded by the wrapper/core include RV32E, RV32M, RV32B, RV32ZC, RegFile, BranchTargetALU, WritebackStage, ICache, ICacheECC, ICacheScramble, BranchPredictor, DbgTriggerEn, SecureIbex, PMPEnable, PMPGranularity, PMPNumRegions, MHPMCounterNum, and MHPMCounterWidth.
 
-If you rename the wrapper’s core name (e.g., change `<MYCORP>`), the exporter auto-derives `<MYCORP>` from `WRAPPER_CORE` and uses it in output paths and names.
+Wrapper/core naming is fixed to `lowrisc` in this integration flow for consistency.
+
+---
+
+## SecureIbex chassis checklist
+
+If `SecureIbex=1`, simulation can stall or timeout when the surrounding chassis/TB doesn't drive
+Ibex security-facing signals correctly. Use this checklist for bring-up:
+
+- Drive `fetch_enable_i` to the **multi-bit ON encoding** (`ibex_pkg::IbexMuBiOn`), not `1'b1`.
+- Keep `scan_rst_ni` deasserted (`1'b1`) in normal operation.
+- Provide valid integrity bits for memory return data:
+  - `instr_rdata_intg_i` must match `instr_rdata_i`
+  - `data_rdata_intg_i` must match `data_rdata_i`
+- Ensure instruction/data handshake signals make forward progress (`*_gnt_i`, `*_rvalid_i`).
+- Keep `instr_err_i` / `data_err_i` low unless intentionally injecting faults.
+
+Reference wiring is available in
+`examples/simple_system/rtl/ibex_simple_system.sv` (see the `SecureIbex` integrity generation block).
+
+Notes:
+- `integration/wrappers/ibex_wrapper.sv` now uses explicit named port mapping (no `.*`).
+- Lockstep/shadow outputs are exported by the wrapper for visibility; leaving these outputs
+  unconnected in a chassis is generally fine.
 
 ---
 
@@ -154,8 +178,8 @@ unless `FORMAL` is defined.
 
 ## Consuming the snapshot downstream
 
-- **With FuseSoC**: add `--cores-root integration/vendor_out/<MYCORP>_ibex_<CFG>` and depend on
-  `name: "<MYCORP>:ibex:<CFG>:<CORE_VER>"`.
+- **With FuseSoC**: add `--cores-root integration/vendor_out/<CFG>_ibex` and depend on
+  `name: "lowrisc:ibex:<CFG>:<CORE_VER>"`.
 - **Without FuseSoC**: point your tool at `rtl/` and `include/` (or parse the `.core` to generate a flat filelist).
 
 ---

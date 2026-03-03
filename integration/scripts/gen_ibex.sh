@@ -17,12 +17,12 @@
 #
 # Environment overrides:
 #   TARGET=sim|lint              (default: sim)
-#   OUTDIR=<path>                (default: integration/vendor_out/<MYCORP>_ibex_<CFG>)
+#   OUTDIR=<path>                (default: integration/vendor_out/<CFG>_ibex)
 #   BUILDROOT=<path>             (default: build/ibex_<CFG>)
 #   FORCE=0|1                    (default: 0; 1 = wipe build/out before regenerating)
-#   WRAPPER_CORE=<ns>:ibex:wrapper   (default: mycorp:ibex:wrapper)
+#   WRAPPER_CORE=<ns>:ibex:wrapper   (default: lowrisc:ibex:wrapper)
 #   CORE_VER=<ver>               (default: 1.0)
-#   TOPLEVEL=<module>            (default: ibex_wrapper; passed to python via env)
+#   TOPLEVEL=<module>            (default: <CFG>_ibex_wrapper; passed to python via env)
 #   DEFINES=<comma list>         (optional; e.g. "VERILATOR,SYNTHESIS,YOSYS")
 #   INCLUDE_FALLBACK=project     (optional; off by default)
 #
@@ -37,6 +37,14 @@ info() { echo ">> $*"; }
 warn() { echo "!! $*" >&2; }
 die()  { echo "ERROR: $*" >&2; exit 1; }
 
+run_fusesoc() {
+  if [[ "${SUPPRESS_FUSESOC_MAPPING_WARN:-1}" == "1" ]]; then
+    fusesoc "$@" 2> >(awk '!/WARNING: Unknown item mapping in section Root/' >&2)
+  else
+    fusesoc "$@"
+  fi
+}
+
 # ---- venv (idempotent) -----------------------------------------------------
 # Sources integration/scripts/venv.sh which creates or activates integration/.venv
 # and installs upstream python-requirements.txt
@@ -50,21 +58,17 @@ if [[ "${1:-}" == "--force" ]]; then
 fi
 CFG="${1:-small}"
 
-WRAPPER_CORE="${WRAPPER_CORE:-mycorp:ibex:wrapper}"
+WRAPPER_CORE="${WRAPPER_CORE:-lowrisc:ibex:wrapper}"
 CORE_VER="${CORE_VER:-1.0}"
 TARGET="${TARGET:-sim}"
 
-# Pull <MYCORP> from WRAPPER_CORE, e.g., mycorp:ibex:wrapper
-MYCORP="$(echo "${WRAPPER_CORE}" | awk -F: '{print $1}')"
-[[ -z "${MYCORP}" ]] && die "Failed to derive vendor prefix from WRAPPER_CORE='${WRAPPER_CORE}'"
-
 # Default OUT/BUILD paths (caller may override via OUTDIR/BUILDROOT)
-OUT="${OUTDIR:-${ROOT}/integration/vendor_out/${MYCORP}_ibex_${CFG}}"
+OUT="${OUTDIR:-${ROOT}/integration/vendor_out/${CFG}_ibex}"
 BUILD="${BUILDROOT:-${ROOT}/build/ibex_${CFG}}"
-VENDOR_CORE_NAME="${MYCORP}:ibex:${CFG}"
+VENDOR_CORE_NAME="lowrisc:ibex:${CFG}"
 
 # Optional knobs passed through to Python via environment:
-TOPLEVEL="${TOPLEVEL:-ibex_wrapper}"
+TOPLEVEL="${TOPLEVEL:-${CFG}_ibex_wrapper}"
 INCLUDE_FALLBACK="${INCLUDE_FALLBACK:-disabled}"   # "disabled" | "project"
 USER_DEFINES="${DEFINES:-}"                         # e.g. "VERILATOR,SYNTHESIS"
 
@@ -109,17 +113,16 @@ else
 fi
 
 info "Generating (TARGET=${TARGET}) with config '${CFG}'"
-echo "   MYCORP=${MYCORP}"
 echo "   WRAPPER_CORE=${WRAPPER_CORE}"
 echo "   BUILD=${BUILD}"
 echo "   OUT=${OUT}"
 echo "   EXPORTED CORE NAME=${VENDOR_CORE_NAME}:${CORE_VER}"
-echo "   EXPORTED CORE FILE=${MYCORP}_ibex_${CFG}.core"
+echo "   EXPORTED CORE FILE=lowrisc_${CFG}_ibex.core"
 [[ -n "${USER_DEFINES}" ]] && echo "   USER DEFINES=${USER_DEFINES}"
 [[ "${INCLUDE_FALLBACK}" != "disabled" ]] && echo "   INCLUDE_FALLBACK=${INCLUDE_FALLBACK}"
 
 # ---- run fusesoc to produce a tool filelist --------------------------------
-fusesoc --cores-root "${ROOT}" run \
+run_fusesoc --cores-root "${ROOT}" run \
   --target="${TARGET}" --setup --build-root "${BUILD}" \
   ${WRAPPER_CORE} ${OPTS}
 
@@ -133,7 +136,7 @@ done
 # if none, do a minimal --build to flush one out, then try again
 if [[ -z "${TOOL_LIST}" ]]; then
   info "No tool filelist found at setup time; trying a minimal build…"
-  fusesoc --cores-root "${ROOT}" run \
+  run_fusesoc --cores-root "${ROOT}" run \
     --target="${TARGET}" --build --build-root "${BUILD}" \
     ${WRAPPER_CORE} ${OPTS}
   TOOL_LIST=$(find "${BUILD}" -type f \( -name 'verilator.f' -o -name '*.vc' -o -name '*.f' \) | head -n 1 || true)
@@ -168,7 +171,8 @@ fi
 #   CORE_FILE_BASENAME override to control the on-disk .core filename.
 export TOPLEVEL
 export INCLUDE_FALLBACK
-export CORE_FILE_BASENAME="${MYCORP}_ibex_${CFG}"
+export CORE_FILE_BASENAME="lowrisc_${CFG}_ibex"
+export WRAPPER_PARAM_OVERRIDES="${OPTS}"
 
 DEFINES="${DEF_HINTS}" \
 python3 "${THIS_DIR}/toollist_to_monocore.py" \

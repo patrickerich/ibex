@@ -4,7 +4,7 @@
 // Notes:
 // - Mirrors ibex_top's parameter list and defaults exactly.
 // - Keeps RVFI ports under `ifdef RVFI` like ibex_top.
-// - Uses named-connections with (.*) since names match 1:1.
+// - Uses explicit named port connections (no wildcard .* connections).
 
 module ibex_wrapper
   import ibex_pkg::*;
@@ -23,6 +23,7 @@ module ibex_wrapper
   parameter bit                     RV32E                        = 1'b0,
   parameter rv32m_e                 RV32M                        = RV32MFast,
   parameter rv32b_e                 RV32B                        = RV32BNone,
+  parameter rv32zc_e                RV32ZC                       = RV32ZcaZcbZcmp,
   parameter regfile_e               RegFile                      = RegFileFF,
   parameter bit                     BranchTargetALU              = 1'b0,
   parameter bit                     WritebackStage               = 1'b0,
@@ -59,7 +60,10 @@ module ibex_wrapper
   input  logic                         clk_i,
   input  logic                         rst_ni,
   input  logic                         test_en_i,     // enable all clock gates for testing
-  input  prim_ram_1p_pkg::ram_1p_cfg_t ram_cfg_i,
+  input  prim_ram_1p_pkg::ram_1p_cfg_t                                 ram_cfg_icache_tag_i,
+  output prim_ram_1p_pkg::ram_1p_cfg_rsp_t [ibex_pkg::IC_NUM_WAYS-1:0] ram_cfg_rsp_icache_tag_o,
+  input  prim_ram_1p_pkg::ram_1p_cfg_t                                 ram_cfg_icache_data_i,
+  output prim_ram_1p_pkg::ram_1p_cfg_rsp_t [ibex_pkg::IC_NUM_WAYS-1:0] ram_cfg_rsp_icache_data_o,
 
   // ---------------- Boot / identity --------------------------
   input  logic [31:0]                  hart_id_i,
@@ -151,6 +155,17 @@ module ibex_wrapper
   output logic                         alert_major_bus_o,
   output logic                         core_sleep_o,
 
+  // ---------------- Lockstep / shadow core outputs ----------
+  output ibex_mubi_t                   lockstep_cmp_en_o,
+  output logic                         data_req_shadow_o,
+  output logic                         data_we_shadow_o,
+  output logic [3:0]                   data_be_shadow_o,
+  output logic [31:0]                  data_addr_shadow_o,
+  output logic [31:0]                  data_wdata_shadow_o,
+  output logic [6:0]                   data_wdata_intg_shadow_o,
+  output logic                         instr_req_shadow_o,
+  output logic [31:0]                  instr_addr_shadow_o,
+
   // ---------------- DFT bypass controls ----------------------
   input  logic                         scan_rst_ni
 );
@@ -169,6 +184,7 @@ module ibex_wrapper
     .RV32E                        (RV32E),
     .RV32M                        (RV32M),
     .RV32B                        (RV32B),
+    .RV32ZC                       (RV32ZC),
     .RegFile                      (RegFile),
     .BranchTargetALU              (BranchTargetALU),
     .WritebackStage               (WritebackStage),
@@ -195,6 +211,101 @@ module ibex_wrapper
 
     .CsrMvendorId                 (CsrMvendorId),
     .CsrMimpId                    (CsrMimpId)
-  ) u_ibex_top (.*);
+  ) u_ibex_top (
+    .clk_i                         (clk_i),
+    .rst_ni                        (rst_ni),
+    .test_en_i                     (test_en_i),
+    .ram_cfg_icache_tag_i          (ram_cfg_icache_tag_i),
+    .ram_cfg_rsp_icache_tag_o      (ram_cfg_rsp_icache_tag_o),
+    .ram_cfg_icache_data_i         (ram_cfg_icache_data_i),
+    .ram_cfg_rsp_icache_data_o     (ram_cfg_rsp_icache_data_o),
+    .hart_id_i                     (hart_id_i),
+    .boot_addr_i                   (boot_addr_i),
+    .instr_req_o                   (instr_req_o),
+    .instr_gnt_i                   (instr_gnt_i),
+    .instr_rvalid_i                (instr_rvalid_i),
+    .instr_addr_o                  (instr_addr_o),
+    .instr_rdata_i                 (instr_rdata_i),
+    .instr_rdata_intg_i            (instr_rdata_intg_i),
+    .instr_err_i                   (instr_err_i),
+    .data_req_o                    (data_req_o),
+    .data_gnt_i                    (data_gnt_i),
+    .data_rvalid_i                 (data_rvalid_i),
+    .data_we_o                     (data_we_o),
+    .data_be_o                     (data_be_o),
+    .data_addr_o                   (data_addr_o),
+    .data_wdata_o                  (data_wdata_o),
+    .data_wdata_intg_o             (data_wdata_intg_o),
+    .data_rdata_i                  (data_rdata_i),
+    .data_rdata_intg_i             (data_rdata_intg_i),
+    .data_err_i                    (data_err_i),
+    .irq_software_i                (irq_software_i),
+    .irq_timer_i                   (irq_timer_i),
+    .irq_external_i                (irq_external_i),
+    .irq_fast_i                    (irq_fast_i),
+    .irq_nm_i                      (irq_nm_i),
+    .scramble_key_valid_i          (scramble_key_valid_i),
+    .scramble_key_i                (scramble_key_i),
+    .scramble_nonce_i              (scramble_nonce_i),
+    .scramble_req_o                (scramble_req_o),
+    .debug_req_i                   (debug_req_i),
+    .crash_dump_o                  (crash_dump_o),
+    .double_fault_seen_o           (double_fault_seen_o),
+`ifdef RVFI
+    .rvfi_valid                    (rvfi_valid),
+    .rvfi_order                    (rvfi_order),
+    .rvfi_insn                     (rvfi_insn),
+    .rvfi_trap                     (rvfi_trap),
+    .rvfi_halt                     (rvfi_halt),
+    .rvfi_intr                     (rvfi_intr),
+    .rvfi_mode                     (rvfi_mode),
+    .rvfi_ixl                      (rvfi_ixl),
+    .rvfi_rs1_addr                 (rvfi_rs1_addr),
+    .rvfi_rs2_addr                 (rvfi_rs2_addr),
+    .rvfi_rs3_addr                 (rvfi_rs3_addr),
+    .rvfi_rs1_rdata                (rvfi_rs1_rdata),
+    .rvfi_rs2_rdata                (rvfi_rs2_rdata),
+    .rvfi_rs3_rdata                (rvfi_rs3_rdata),
+    .rvfi_rd_addr                  (rvfi_rd_addr),
+    .rvfi_rd_wdata                 (rvfi_rd_wdata),
+    .rvfi_pc_rdata                 (rvfi_pc_rdata),
+    .rvfi_pc_wdata                 (rvfi_pc_wdata),
+    .rvfi_mem_addr                 (rvfi_mem_addr),
+    .rvfi_mem_rmask                (rvfi_mem_rmask),
+    .rvfi_mem_wmask                (rvfi_mem_wmask),
+    .rvfi_mem_rdata                (rvfi_mem_rdata),
+    .rvfi_mem_wdata                (rvfi_mem_wdata),
+    .rvfi_ext_pre_mip              (rvfi_ext_pre_mip),
+    .rvfi_ext_post_mip             (rvfi_ext_post_mip),
+    .rvfi_ext_nmi                  (rvfi_ext_nmi),
+    .rvfi_ext_nmi_int              (rvfi_ext_nmi_int),
+    .rvfi_ext_debug_req            (rvfi_ext_debug_req),
+    .rvfi_ext_debug_mode           (rvfi_ext_debug_mode),
+    .rvfi_ext_rf_wr_suppress       (rvfi_ext_rf_wr_suppress),
+    .rvfi_ext_mcycle               (rvfi_ext_mcycle),
+    .rvfi_ext_mhpmcounters         (rvfi_ext_mhpmcounters),
+    .rvfi_ext_mhpmcountersh        (rvfi_ext_mhpmcountersh),
+    .rvfi_ext_ic_scr_key_valid     (rvfi_ext_ic_scr_key_valid),
+    .rvfi_ext_irq_valid            (rvfi_ext_irq_valid),
+    .rvfi_ext_expanded_insn_valid  (),
+    .rvfi_ext_expanded_insn        (),
+    .rvfi_ext_expanded_insn_last   (),
+`endif
+    .fetch_enable_i                (fetch_enable_i),
+    .alert_minor_o                 (alert_minor_o),
+    .alert_major_internal_o        (alert_major_internal_o),
+    .alert_major_bus_o             (alert_major_bus_o),
+    .core_sleep_o                  (core_sleep_o),
+    .scan_rst_ni                   (scan_rst_ni),
+    .lockstep_cmp_en_o             (lockstep_cmp_en_o),
+    .data_req_shadow_o             (data_req_shadow_o),
+    .data_we_shadow_o              (data_we_shadow_o),
+    .data_be_shadow_o              (data_be_shadow_o),
+    .data_addr_shadow_o            (data_addr_shadow_o),
+    .data_wdata_shadow_o           (data_wdata_shadow_o),
+    .data_wdata_intg_shadow_o      (data_wdata_intg_shadow_o),
+    .instr_req_shadow_o            (instr_req_shadow_o),
+    .instr_addr_shadow_o           (instr_addr_shadow_o)
+  );
 
 endmodule
