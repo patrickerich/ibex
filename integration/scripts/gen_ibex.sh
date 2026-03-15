@@ -20,7 +20,7 @@
 #   OUTDIR=<path>                (default: integration/vendor_out/<CFG>_ibex)
 #   BUILDROOT=<path>             (default: build/ibex_<CFG>)
 #   FORCE=0|1                    (default: 0; 1 = wipe build/out before regenerating)
-#   WRAPPER_CORE=<ns>:ibex:wrapper   (default: lowrisc:ibex:wrapper)
+#   WRAPPER_CORE=<ns>:ibex:wrapper   (default: ibex:wrapper:design)
 #   CORE_VER=<ver>               (default: 1.0)
 #   TOPLEVEL=<module>            (default: <CFG>_ibex_wrapper; passed to python via env)
 #   DEFINES=<comma list>         (optional; e.g. "VERILATOR,SYNTHESIS,YOSYS")
@@ -58,14 +58,14 @@ if [[ "${1:-}" == "--force" ]]; then
 fi
 CFG="${1:-small}"
 
-WRAPPER_CORE="${WRAPPER_CORE:-lowrisc:ibex:wrapper}"
+WRAPPER_CORE="${WRAPPER_CORE:-ibex:wrapper:design}"
 CORE_VER="${CORE_VER:-1.0}"
 TARGET="${TARGET:-sim}"
 
 # Default OUT/BUILD paths (caller may override via OUTDIR/BUILDROOT)
 OUT="${OUTDIR:-${ROOT}/integration/vendor_out/${CFG}_ibex}"
 BUILD="${BUILDROOT:-${ROOT}/build/ibex_${CFG}}"
-VENDOR_CORE_NAME="lowrisc:ibex:${CFG}"
+VENDOR_CORE_NAME="${CFG}:ibex:design"
 
 # Optional knobs passed through to Python via environment:
 TOPLEVEL="${TOPLEVEL:-${CFG}_ibex_wrapper}"
@@ -117,7 +117,7 @@ echo "   WRAPPER_CORE=${WRAPPER_CORE}"
 echo "   BUILD=${BUILD}"
 echo "   OUT=${OUT}"
 echo "   EXPORTED CORE NAME=${VENDOR_CORE_NAME}:${CORE_VER}"
-echo "   EXPORTED CORE FILE=lowrisc_${CFG}_ibex.core"
+echo "   EXPORTED CORE FILE=${CFG}_ibex.core"
 [[ -n "${USER_DEFINES}" ]] && echo "   USER DEFINES=${USER_DEFINES}"
 [[ "${INCLUDE_FALLBACK}" != "disabled" ]] && echo "   INCLUDE_FALLBACK=${INCLUDE_FALLBACK}"
 
@@ -171,7 +171,7 @@ fi
 #   CORE_FILE_BASENAME override to control the on-disk .core filename.
 export TOPLEVEL
 export INCLUDE_FALLBACK
-export CORE_FILE_BASENAME="lowrisc_${CFG}_ibex"
+export CORE_FILE_BASENAME="${CFG}_ibex"
 export WRAPPER_PARAM_OVERRIDES="${OPTS}"
 
 DEFINES="${DEF_HINTS}" \

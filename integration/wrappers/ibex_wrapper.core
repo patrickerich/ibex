@@ -1,6 +1,6 @@
 CAPI=2:
 
-name: "lowrisc:ibex:wrapper:1.0"
+name: "ibex:wrapper:design:1.0"
 description: "Thin wrapper around lowRISC Ibex core that exposes parameters for custom builds"
 
 filesets:

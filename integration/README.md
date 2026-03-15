@@ -36,10 +36,10 @@ This integration keeps the generator environment local, then emits `vendor_out/<
     │   └─ <CFG>_ibex/
     │       ├─ rtl/                 # copied sources
     │       ├─ include/             # copied headers (only if any)
-    │       ├─ lowrisc_<CFG>_ibex.core
+    │       ├─ <CFG>_ibex.core
     │       └─ METADATA.json
     └─ wrappers/
-        ├─ lowrisc_ibex_wrapper.core   # wrapper core you invoke via FuseSoC
+        ├─ ibex_wrapper.core           # wrapper core you invoke via FuseSoC
         └─ ibex_wrapper.sv             # wrapper module around ibex_top
 
 Note: The exporter still uses upstream `util/ibex_config.py` and the lowRISC core library during generation; the **output** does not.
@@ -62,20 +62,20 @@ From the **repo root**:
 
 Pick or create a config name (e.g. `small`, `opentitan`, or your own in the overlay), then:
 
-    FORCE=1 make -C integration vendor CFG=socrates
+    FORCE=1 make -C integration vendor CFG=socratic
 
 This produces:
 
-    integration/vendor_out/socrates_ibex/
+    integration/vendor_out/socratic_ibex/
     ├─ rtl/
     ├─ include/                      # present only if headers were copied
-    ├─ lowrisc_socrates_ibex.core    # core name: "lowrisc:ibex:socrates:1.0"
+    ├─ socratic_ibex.core            # core name: "socratic:ibex:design:1.0"
     └─ METADATA.json
 
 Defaults:
-- Wrapper core invoked: `WRAPPER_CORE = lowrisc:ibex:wrapper`
-- Exported core name: `lowrisc:ibex:<CFG>:<CORE_VER>` (`CORE_VER=1.0`)
-- Exported file name: `lowrisc_<CFG>_ibex.core`
+- Wrapper core invoked: `WRAPPER_CORE = ibex:wrapper:design`
+- Exported core name: `<CFG>:ibex:design:<CORE_VER>` (`CORE_VER=1.0`)
+- Exported file name: `<CFG>_ibex.core`
 - Toplevel inside export: `<CFG>_ibex_wrapper`
 
 ---
@@ -96,16 +96,16 @@ Sanity check a config (from repo root):
 
 ## Wrapper core & module
 
-- Core file on disk: `integration/wrappers/lowrisc_ibex_wrapper.core`
+- Core file on disk: `integration/wrappers/ibex_wrapper.core`
   Inside it, set:
 
-  name: "lowrisc:ibex:wrapper:1.0"
+  name: "ibex:wrapper:design:1.0"
 
 - Wrapper RTL: `integration/wrappers/ibex_wrapper.sv`
   The module (`ibex_wrapper`) exposes ibex_top’s native ports (instr/data, IRQs, debug, crash-dump, DFT, scrambling, RVFI under `RVFI`, etc.). It’s a zero-logic pass-through; trim or extend as needed.
   Config parameters forwarded by the wrapper/core include RV32E, RV32M, RV32B, RV32ZC, RegFile, BranchTargetALU, WritebackStage, ICache, ICacheECC, ICacheScramble, BranchPredictor, DbgTriggerEn, SecureIbex, PMPEnable, PMPGranularity, PMPNumRegions, MHPMCounterNum, and MHPMCounterWidth.
 
-Wrapper/core naming is fixed to `lowrisc` in this integration flow for consistency.
+Wrapper and exported cores now use project-local names without the `lowrisc` prefix.
 
 ---
 
@@ -161,7 +161,7 @@ The exporter therefore supports **define hints**:
 Example:
 
     # Synthesis-flavored snapshot (dummy assert macros)
-    FORCE=1 DEFINES=SYNTHESIS make -C integration vendor CFG=socrates
+    FORCE=1 DEFINES=SYNTHESIS make -C integration vendor CFG=socratic
 
 ### Assert macro family
 
@@ -179,7 +179,7 @@ unless `FORMAL` is defined.
 ## Consuming the snapshot downstream
 
 - **With FuseSoC**: add `--cores-root integration/vendor_out/<CFG>_ibex` and depend on
-  `name: "lowrisc:ibex:<CFG>:<CORE_VER>"`.
+  `name: "<CFG>:ibex:design:<CORE_VER>"`.
 - **Without FuseSoC**: point your tool at `rtl/` and `include/` (or parse the `.core` to generate a flat filelist).
 
 ---

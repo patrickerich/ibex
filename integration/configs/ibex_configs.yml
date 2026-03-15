@@ -10,8 +10,8 @@
 # ============================
 # See the next section for the original supported configurations
 
-# Configuration to match that used in the Socrates project
-socrates:
+# Configuration to match that used in the socratic project
+socratic:
   RV32E                    : 0
   RV32M                    : "ibex_pkg::RV32MFast"
   RV32B                    : "ibex_pkg::RV32BBalanced"
@@ -23,9 +23,9 @@ socrates:
   ICacheECC                : 0
   ICacheScramble           : 0
   BranchPredictor          : 0
-  DbgTriggerEn             : 1
-  SecureIbex               : 1
-  PMPEnable                : 1
+  DbgTriggerEn             : 0
+  SecureIbex               : 0
+  PMPEnable                : 0
   PMPGranularity           : 0
   PMPNumRegions            : 16
   MHPMCounterNum           : 4
