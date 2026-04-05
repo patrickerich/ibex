@@ -319,7 +319,7 @@ wrapper_path = rename_wrapper_to_toplevel(TOPLEVEL)
 wrapper_defaults = parse_wrapper_param_overrides(WRAPPER_PARAM_OVERRIDES)
 update_wrapper_defaults(wrapper_path, wrapper_defaults)
 
-# 3) Emit CAPI2 core (no include_dirs; use is_include_file instead)
+# 3) Emit CAPI2 core using explicit include files with include_path
 file_base = CORE_FILE_BASENAME if CORE_FILE_BASENAME else core_name.split(":")[-1]
 core_path = export_dir / f"{file_base}.core"
 
@@ -331,28 +331,18 @@ with core_path.open("w") as core:
     core.write("  files_all:\n")
     core.write("    files:\n")
 
-    # Collapse include headers into one dummy per unique root directory under export tree
-    # Example: headers under "include/..." -> emit "include/include" once.
-    header_roots = []
+    # Emit harvested headers first. They live under export_dir/include/...
+    # and are marked as include files with include_path: include.
     for ent in files_ordered:
         if not ent["is_header"]:
             continue
-        p = Path(ent["rel"])
-        parts = p.parts
-        if not parts:
-            continue
-        root = parts[0]
-        if root and root not in header_roots:
-            header_roots.append(root)
+        rel = ent["rel"]
+        core.write(f"      - {rel}:\n")
+        core.write("          file_type: systemVerilogSource\n")
+        core.write("          is_include_file: true\n")
+        core.write("          include_path: include\n")
 
-    # Intentionally do not create on-disk dummy "include" files.
-    # We still emit entries for <root>/include in the core filelist below.
-    # Emit include-dir entries FIRST (at top of the file list), one per unique root
-    # Keep a deterministic order
-    for root in sorted(header_roots):
-        core.write(f"      - {root}/include: {{file_type: systemVerilogSource, is_include_file: true}}\n")
-
-    # Then emit non-header sources
+    # Then emit non-header sources.
     for ent in files_ordered:
         if ent["is_header"]:
             continue
@@ -373,4 +363,3 @@ except Exception:
     pass
 
 print(f"Wrote monocore to {core_path}")
-

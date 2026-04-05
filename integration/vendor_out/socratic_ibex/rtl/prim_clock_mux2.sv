@@ -5,7 +5,7 @@
 `include "prim_assert.sv"
 
 module prim_clock_mux2 #(
-  parameter bit NoFpgaBufG = 1'b0
+  parameter bit NoFpgaBufG = 1'b0 // this parameter serves no function in the generic model
 ) (
   input        clk0_i,
   input        clk1_i,
@@ -13,24 +13,19 @@ module prim_clock_mux2 #(
   output logic clk_o
 );
 
-  if (NoFpgaBufG) begin : gen_no_bufg
-    assign clk_o = (sel_i) ? clk1_i : clk0_i;
-  end else begin : gen_bufg
-    // for more info, refer to the Xilinx technology primitives userguide, e.g.:
-    // ug953-vivado-7series-libraries.pdf
-    // ug974-vivado-ultrascale-libraries.pdf
-    BUFGMUX bufgmux_i (
-      .S (sel_i),
-      .I0(clk0_i),
-      .I1(clk1_i),
-      .O (clk_o)
-    );
-  end
+  // We model the mux with logic operations for GTECH runs.
+  assign clk_o = (sel_i & clk1_i) | (~sel_i & clk0_i);
 
-  // make sure sel is never X (including during reset)
-  // need to use ##1 as this could break with inverted clocks that
-  // start with a rising edge at the beginning of the simulation.
+  // Make sure sel is never X.
+  //
+  // So that this can be a clocked assertion, we check it on the posedge of each input clock.
+  //
+  // This is disabled for FPV runs (because some formal tools don't have a concept of "X"). The
+  // assertion comes after a ##1 to allow inverted clocks that start with a rising edge at the
+  // beginning of the simulation.
+`ifndef FPV_ON
   `ASSERT(selKnown0, ##1 !$isunknown(sel_i), clk0_i, 0)
   `ASSERT(selKnown1, ##1 !$isunknown(sel_i), clk1_i, 0)
+`endif
 
 endmodule : prim_clock_mux2
