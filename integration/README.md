@@ -174,6 +174,14 @@ When the script encounters one of:
 sim (Verilator), synth, and Yosys without regenerating, while keeping formal headers out
 unless `FORMAL` is defined.
 
+### Include-tree source files
+
+Some files discovered through include paths are not textual headers. In particular,
+`prim_secded*.sv` files define packages/modules and must be emitted as normal
+`systemVerilogSource` files, not as CAPI2 `is_include_file` entries. The exporter
+keeps them under `include/` to preserve paths, but lists them as real compilation
+units before the macro/header includes.
+
 ---
 
 ## Consuming the snapshot downstream

@@ -40,6 +40,9 @@ HDL_EXTS = (".sv", ".svh", ".vh", ".v")
 HEADER_EXTS = (".svh", ".vh")
 # Basic regex to catch: `include "foo/bar.sv"`  (ignores comments/block noise heuristically)
 RE_INCLUDE = re.compile(r'^\s*`include\s+"([^"]+)"')
+FORCED_INCLUDE_SOURCES = (
+    "prim_secded",
+)
 
 KNOWN_OPTIONAL_INCLUDES = {
     "formal_tb_frag.svh",
@@ -160,6 +163,18 @@ def ensure_dir(d: Path):
     if not d.exists():
         d.mkdir(parents=True, exist_ok=True)
 
+def is_forced_include_source(p: Path | str) -> bool:
+    """
+    Some upstream Ibex helper modules are pulled through include paths but are
+    real compilation units, not textual macro/header includes.
+
+    In particular, the SECDED encoder/decoder files under include/ define
+    packages/modules. Marking them as is_include_file makes Vivado skip them as
+    sources, leaving instantiated SECDED modules unresolved.
+    """
+    name = Path(p).name
+    return name.endswith(".sv") and any(name.startswith(prefix) for prefix in FORCED_INCLUDE_SOURCES)
+
 def _add_entry(dst: Path, is_header: bool, orig: Path | None):
     """Register a copied file into files_ordered iff not already present."""
     rel = os.path.relpath(dst, export_dir)
@@ -178,12 +193,15 @@ def add_src(base: Path, token: str):
     if orig.suffix.lower() not in HDL_EXTS:
         return
 
-    # Heuristic header classification for toollist-provided entries:
-    is_header = is_under_incdir(orig) or (orig.suffix.lower() in HEADER_EXTS)
+    # Heuristic header classification for toollist-provided entries. A few .sv
+    # files are found through include dirs but must still be compiled as sources.
+    is_header = (is_under_incdir(orig) or (orig.suffix.lower() in HEADER_EXTS)) and \
+        not is_forced_include_source(orig)
 
-    # Destination: headers -> include/, others -> rtl/
-    dst_root = inc_dir if is_header else rtl_dir
-    if is_header:
+    # Destination: headers and forced include-sources -> include/, normal sources -> rtl/.
+    # Keeping forced include-sources in include/ preserves any relative include paths.
+    dst_root = inc_dir if (is_header or is_forced_include_source(orig)) else rtl_dir
+    if dst_root == inc_dir:
         ensure_dir(inc_dir)  # lazily create include/ only if needed
 
     # Preserve basename for normal sources; avoid collisions
@@ -270,8 +288,9 @@ def copy_include(include_name: str, src_abs: Path):
     dst_parent.mkdir(parents=True, exist_ok=True)
     if not dst.exists():
         shutil.copy2(src_abs, dst)
-    # Register (or get) entry
-    ent = _add_entry(dst, True, src_abs)
+    # Register (or get) entry. Some included .sv files are real compilation
+    # units and must not be emitted as CAPI2 include-only files.
+    ent = _add_entry(dst, not is_forced_include_source(src_abs), src_abs)
     return ent
 
 # 1) Parse the top-level tool filelist (recurses via -f chains) and copy those files
@@ -331,7 +350,16 @@ with core_path.open("w") as core:
     core.write("  files_all:\n")
     core.write("    files:\n")
 
-    # Emit harvested headers first. They live under export_dir/include/...
+    # Emit include-tree compilation units first. These are files that upstream
+    # exposes via include paths, but which define packages/modules and must be
+    # visible to synthesis/simulation as real sources.
+    for ent in files_ordered:
+        if ent["is_header"] or not is_forced_include_source(ent["rel"]):
+            continue
+        rel = ent["rel"]
+        core.write(f"      - {rel}: {{file_type: systemVerilogSource}}\n")
+
+    # Emit harvested textual headers next. They live under export_dir/include/...
     # and are marked as include files with include_path: include.
     for ent in files_ordered:
         if not ent["is_header"]:
@@ -345,6 +373,8 @@ with core_path.open("w") as core:
     # Then emit non-header sources.
     for ent in files_ordered:
         if ent["is_header"]:
+            continue
+        if is_forced_include_source(ent["rel"]):
             continue
         rel = ent["rel"]
         core.write(f"      - {rel}: {{file_type: systemVerilogSource}}\n")
